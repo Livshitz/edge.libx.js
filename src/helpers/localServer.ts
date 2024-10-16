@@ -9,6 +9,8 @@ import { log, LogLevel } from 'libx.js/build/modules/log';
 import { libx } from 'libx.js/build/bundles/node.essentials';
 import path from 'path';
 
+require('dotenv').config({ path: `.env.${process.env.NODE_ENV}` });
+
 log.isDebug = true;
 log.filterLevel = LogLevel.All;
 

@@ -4,4 +4,4 @@
 dir=$( dirname $(realpath "$0") )/../
 
 # Execute the main script and pass the args
-node $dir/build/Main.js $@
+node $dir/build/main.js $@
