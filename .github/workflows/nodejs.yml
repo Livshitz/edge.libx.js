@@ -21,16 +21,15 @@ jobs:
                 node-version: [20.x]
 
         steps:
-            - uses: actions/checkout@v2
+            - uses: oven-sh/setup-bun@v2
+
             # Setup .npmrc file to publish to npm
             - uses: actions/setup-node@v1
               with:
                   node-version: ${{ matrix.node-version }}
                   registry-url: 'https://registry.npmjs.org'
                   scope: '@octocat'
-            # - run: yarn --frozen-lockfile
             - run: bun run build
-            # - run: bun run test
             - name: bun run bump
               if: github.ref == 'refs/heads/main'
               run: |
