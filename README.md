@@ -47,3 +47,4 @@ Useful package.json scripts:
 ---
 
 Scaffolded with [🏗 TS-scaffold](https://github.com/Livshitz/ts-scaffold.git)
+
