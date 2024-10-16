@@ -22,15 +22,15 @@ jobs:
 
         steps:
             - uses: actions/checkout@v4
-            - uses: oven-sh/setup-bun@v2
-
             # Setup .npmrc file to publish to npm
             - uses: actions/setup-node@v1
               with:
                   node-version: ${{ matrix.node-version }}
                   registry-url: 'https://registry.npmjs.org'
                   scope: '@octocat'
-            - run: bun run install
+            - uses: oven-sh/setup-bun@v2
+
+            - run: bun install
             - run: bun run build
             - name: bun run bump
               if: github.ref == 'refs/heads/main'
