@@ -52,7 +52,7 @@ try {
 
 		const command = `printf "%s" "${value}" | ${setCommand} "${key}" ${env}`;
 		console.log('Running command...');
-		console.log(`DBG: ${command}`);
+		// console.log(`DBG: ${command}`);
 
 		try {
 			const result = execSync(command, { stdio: 'pipe' });

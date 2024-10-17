@@ -121,7 +121,7 @@ export default async function cors(
   if (exposed) {
     headers.set('Access-Control-Expose-Headers', exposed)
   }
-  debugger
+
   // Handle the preflight request
   if (req.method === 'OPTIONS') {
     if (opts.methods) {
