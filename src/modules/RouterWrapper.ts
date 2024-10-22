@@ -17,17 +17,17 @@ export class RouterWrapper<TCtx = any> {
 		try {
 			return this.corsify(response, request);
 		} catch (err) {
-			libx.log.w('tryCors: failed to perform CORS', err);
-		}
+            libx.log.w('tryCors: failed to perform CORS', err);
+        }
 	}
 
 	public static getNew(base: string) {
 		const router = Router({
-			base,
-			before: [this.preflight],
-			catch: this.errorHandler,
-			finally: [this.tryCors],
-		});
+            base,
+            before: [this.preflight],
+            catch: this.errorHandler,
+            // finally: [this.tryCors],
+        });
 		router.all('*', withParams);
 		// router.finally.push(this.corsify);
 
