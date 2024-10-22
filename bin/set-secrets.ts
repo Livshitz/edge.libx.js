@@ -16,23 +16,24 @@ try {
 	const lines = fileContents.split('\n');
 
 	for (const line of lines) {
-		if (!line.trim() || line.startsWith('#')) {
-			const glimpse = line.substring(0, 10);
-			console.log(`Skipping comment or empty line: ${glimpse}...`);
-			continue;
-		}
+		if (!line.trim() || line.trim().startsWith('#')) {
+            const glimpse = line.substring(0, 10);
+            console.log(`Skipping comment or empty line: ${glimpse}...`);
+            continue;
+        }
 
-		const firstEqualIndex = line.indexOf('=');
-		if (firstEqualIndex === -1) {
-			console.log(`Skipping invalid line: ${line}`);
-			continue;
-		}
+        const firstEqualIndex = line.indexOf('=');
+        if (firstEqualIndex === -1) {
+            console.log(`Skipping invalid line: ${line}`);
+            continue;
+        }
 
-		const key = line.substring(0, firstEqualIndex).trim();
-		const rawValue = line.substring(firstEqualIndex + 1).trim();
-		// Escape double quotes in the value
-		let value = rawValue.replace(/"/g, '\\"');
-		value = rawValue.replace(/"/g, '\\"');
+        const key = line.substring(0, firstEqualIndex).trim();
+        const rawValue = line.substring(firstEqualIndex + 1).trim();
+        // Escape double quotes in the value
+        let value = rawValue.replace(/"/g, '\\"');
+        value = rawValue.replace(/"/g, '\\"');
+        value = rawValue.replace(/\s*#.*/g, '');
 
 		console.log(`Processing key: ${key}`);
 
