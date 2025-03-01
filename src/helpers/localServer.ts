@@ -44,7 +44,7 @@ libx.node.catchErrors((err) => {
 
 
 // only lunch manual local server if using 'dev' command
-if (['debug', 'debug:watch'].indexOf(process.env.npm_lifecycle_event) !== -1) {
+if (['debug', 'debug:watch', 'api:debug'].indexOf(process.env.npm_lifecycle_event) !== -1) {
 	const env = getEnvVars() ?? { a: 1 };
 
 	for (let entryPoint of entryPoints) {
