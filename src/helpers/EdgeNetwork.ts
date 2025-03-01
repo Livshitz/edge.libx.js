@@ -22,7 +22,7 @@ class EdgeNetwork {
 				try {
 					body = await res.json(); 
 				} catch {}
-				const msg = `Fetch error: "${res?.status} - ${body?.error ?? body?.message ?? res?.statusText}"`;
+				const msg = `Fetch error: "${res?.status} - ${body?.error?.message ?? body?.message ?? res?.statusText}"`;
 				libx.log.w(msg, body);
 				return p.reject(msg); 
 			}
