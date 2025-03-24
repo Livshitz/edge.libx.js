@@ -1,9 +1,9 @@
 import bodyParser from 'body-parser';
-import express from 'express';
+import express, { Express, Request, Response } from "express";
 import cors from 'cors';
 
 export function getExpress() {
-	const app = express();
+	let app: Express = express();
 
 	app.set('json spaces', 4);
 

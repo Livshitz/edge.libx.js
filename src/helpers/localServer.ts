@@ -1,13 +1,16 @@
+// $ npm_lifecycle_event=debug tsx --inspect -r dotenv/config ./src/helpers/localServer.ts --https
 import { createServerAdapter } from '@whatwg-node/server';
 import 'isomorphic-fetch';
 import { IRequest, Router, error, json } from 'itty-router';
-import express from 'express';
+import express, { Express, Request, Response } from "express";
 import { getExpress } from './getExpress';
 // import { router, server } from '../v5';
 import fs from 'fs';
 import { log, LogLevel } from 'libx.js/build/modules/log';
 import { libx } from 'libx.js/build/bundles/node.essentials';
 import path from 'path';
+import https, { createServer } from 'https';
+import selfsigned from 'selfsigned';
 
 require('dotenv').config({ path: `.env.${process.env.NODE_ENV}` });
 
@@ -15,7 +18,6 @@ log.isDebug = true;
 log.filterLevel = LogLevel.All;
 
 const envFile = '.env'; //'.dev.vars'
-
 const entryPoints = libx.node.args._;
 
 const { app } = getExpress();
@@ -42,7 +44,6 @@ libx.node.catchErrors((err) => {
 }, false);
 
 
-
 // only lunch manual local server if using 'dev' command
 if (['debug', 'debug:watch', 'api:debug'].indexOf(process.env.npm_lifecycle_event) !== -1) {
 	const env = getEnvVars() ?? { a: 1 };
@@ -64,13 +65,27 @@ if (['debug', 'debug:watch', 'api:debug'].indexOf(process.env.npm_lifecycle_even
 	// 		// handlerRedirect(<IRequest>request, env))
 	// );
 
-	const port = 8080;
+	const port = process.env.PORT || 8080;
 	try {
-		app.listen(port, () => {
-			console.log(`Server listening on http://0.0.0.0:${port}`);
+		let server: https.Server | Express = app;
+
+		const isHttps = process.env.useHttps ?? (libx.node.args.https != null) ?? false;
+		if (isHttps) {
+			libx.log.v('localServer: using https');
+			const attrs = [{ name: 'commonName', value: 'localhost' }];
+			const pems = selfsigned.generate(attrs, { days: 365 });
+
+			server = createServer({
+				key: pems.private,
+				cert: pems.cert,
+			}, app);
+		}
+
+		server.listen(port, () => {
+			console.log(`Server listening on http${isHttps ? 's' : ''}://0.0.0.0:${port}`);
 		});
 	} catch (err) {
-		console.warn(`LOCAL: Failed to start local server on port: ${port}`);
+		console.error(`LOCAL: Failed to start local server on port: ${port}`, err);
 	}
 }
 
