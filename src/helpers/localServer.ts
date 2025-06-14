@@ -1,4 +1,4 @@
-// $ npm_lifecycle_event=debug tsx --inspect -r dotenv/config ./src/helpers/localServer.ts --https
+// $ npm_lifecycle_event=debug tsx --inspect ./src/helpers/localServer.ts --https
 import { createServerAdapter } from '@whatwg-node/server';
 import 'isomorphic-fetch';
 import { IRequest, Router, error, json } from 'itty-router';
@@ -12,7 +12,7 @@ import path from 'path';
 import https, { createServer } from 'https';
 import selfsigned from 'selfsigned';
 
-require('dotenv').config({ path: `.env.${process.env.NODE_ENV}` });
+libx.node.loadEnv({ path: `.env.${process.env.NODE_ENV}` });
 
 log.isDebug = true;
 log.filterLevel = LogLevel.All;

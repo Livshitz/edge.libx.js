@@ -21,8 +21,8 @@ Useful package.json scripts:
 ...
     "scripts": {
         "build": "tsc",
-        "debug": "tsx --inspect -r dotenv/config node_modules/edge.libx.js/src/helpers/localServer.ts src/index.ts",
-        "debug:watch": "nodemon --watch 'src/**/*.ts' --exec tsx --inspect -r dotenv/config node_modules/edge.libx.js/src/helpers/localServer.ts src/index.ts",
+        "debug": "tsx --inspect node_modules/edge.libx.js/src/helpers/localServer.ts src/index.ts",
+        "debug:watch": "nodemon --watch 'src/**/*.ts' --exec tsx --inspect node_modules/edge.libx.js/src/helpers/localServer.ts src/index.ts",
 
         "set-secrets": "set-secrets .env.preview preview \"vercel env add\" remove",
 
