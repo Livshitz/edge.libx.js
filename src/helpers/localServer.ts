@@ -12,6 +12,8 @@ import path from 'path';
 import https, { createServer } from 'https';
 import selfsigned from 'selfsigned';
 
+declare const process: NodeJS.Process;
+
 libx.node.loadEnv({ path: `.env.${process.env.NODE_ENV}` });
 
 log.isDebug = true;
