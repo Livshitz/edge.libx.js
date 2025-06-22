@@ -1,4 +1,4 @@
-import { RouterWrapper } from '../src/main';
+import { RouterWrapper, cors } from '../src/main';
 
 // const main = new App();
 
