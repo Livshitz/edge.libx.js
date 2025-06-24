@@ -3,39 +3,38 @@ import { Route, Router, RouterType, error, json, cors, withParams, IRequest, tex
 import { createServerAdapter } from '@whatwg-node/server';
 
 type BaseRouterInitializer = (string) => { base: string; router: RouterType<IRequest, any[]> };
+type CorsOptions = Parameters<typeof cors>[0];
 
 export class RouterWrapper<TCtx = any> {
-	private static cors = cors({ origin: ['*'], allowMethods: ['POST'] });
-	private static preflight = this.cors.preflight;
-	private static corsify = this.cors.corsify;
+	private cors: ReturnType<typeof cors>;
+	private preflight: (request: Request) => Response | Promise<Response>;
+	private corsify: (response: Response, request: Request) => Response | Promise<Response>;
 
-	public constructor(public base: string, public router: RouterType<Request, [], any>) {
-
+	public constructor(
+		public base: string,
+		public router: RouterType<Request, [], any>,
+		corsOptions?: CorsOptions
+	) {
+		this.cors = cors(corsOptions ?? {
+			origin: '*',
+			allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+			allowHeaders: ['Content-Type', 'Authorization'],
+			exposeHeaders: ['Content-Type', 'Authorization'],
+		});
+		this.preflight = this.cors.preflight;
+		this.corsify = this.cors.corsify;
 	}
 
-	private static tryCors(response, request): Response {
-		try {
-			return this.corsify(response, request);
-		} catch (err) {
-            libx.log.w('tryCors: failed to perform CORS', err);
-        }
-	}
-
-	public static getNew(base: string) {
+	public static getNew(base: string, corsOptions?: CorsOptions) {
+		const temp = new RouterWrapper(base, Router({ base }), corsOptions);
 		const router = Router({
-            base,
-            before: [this.preflight],
-            catch: this.errorHandler,
-            // finally: [this.tryCors],
-        });
+			base,
+			before: [temp.preflight],
+			catch: RouterWrapper.errorHandler,
+		});
 		router.all('*', withParams);
-		// router.finally.push(this.corsify);
-
-		// router.all('*', () => error(404));
-
-		return new RouterWrapper(base, router);
+		return new RouterWrapper(base, router, corsOptions);
 	}
-
 
 	public static errorHandler(error) {
 		const isObject = libx.isObject(error);
@@ -53,8 +52,10 @@ export class RouterWrapper<TCtx = any> {
 	};
 
 	public fetchHandler(request: IRequest, ctx: TCtx) {
-		// return this.router.fetch(request, ctx).then(json).then(RouterWrapper.corsify).catch(this.errorHandler);
-		return this.router.fetch(request, ctx).then(json).catch(RouterWrapper.errorHandler);
+		return this.router.fetch(request, ctx)
+			.then(json)
+			.catch(RouterWrapper.errorHandler)
+			.then((res) => this.corsify(res, request));
 	}
 
 	public catchNotFound() {
