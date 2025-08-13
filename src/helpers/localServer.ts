@@ -55,8 +55,8 @@ if (true || ['debug', 'debug:watch', 'api:debug', ''].indexOf(process.env.npm_li
 		const { handler, prefix } = require(`${dir}/${entryPoint}`);
 		app.use(
 			prefix ?? '/api',
-			createServerAdapter((request, env) =>
-				handler(<IRequest>request, env))
+			createServerAdapter((request, ctx) =>
+				handler(<IRequest>request, env, ctx))
 		);
 	}
 
