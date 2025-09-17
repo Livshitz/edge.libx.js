@@ -3,23 +3,26 @@ import express, { Express, Request, Response } from "express";
 import cors from 'cors';
 
 export function getExpress() {
-	let app: Express = express();
+    let app: Express = express();
 
-	app.set('json spaces', 4);
+    app.set('json spaces', 4);
 
-	var rawBodySaver = function (req, res, buf, encoding) {
-		if (buf && buf.length) {
-			req.rawBody = buf.toString(encoding || 'utf8');
-		}
-	};
+    var rawBodySaver = function (req, res, buf, encoding) {
+        if (buf && buf.length) {
+            req.rawBody = buf.toString(encoding || 'utf8');
+        }
+    };
 
-	app.use(bodyParser.json({ verify: rawBodySaver }));
-	app.use(bodyParser.urlencoded({ verify: rawBodySaver, extended: true }));
-	app.use(bodyParser.raw({ verify: rawBodySaver, type: '*/*' }));
+    // Increase payload limits for audio uploads (STT) - up to 25MB to match OpenAI's limit
+    const payloadLimit = '25mb';
 
-	app.use(cors());
+    app.use(bodyParser.json({ verify: rawBodySaver, limit: payloadLimit }));
+    app.use(bodyParser.urlencoded({ verify: rawBodySaver, extended: true, limit: payloadLimit }));
+    app.use(bodyParser.raw({ verify: rawBodySaver, type: '*/*', limit: payloadLimit }));
 
-	const router = express.Router();
+    app.use(cors());
 
-	return { app, router };
+    const router = express.Router();
+
+    return { app, router };
 }
