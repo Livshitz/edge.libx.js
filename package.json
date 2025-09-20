@@ -34,7 +34,7 @@
         "isomorphic-fetch": "^3.0.0",
         "itty-router": "^5.0.18",
         "js-base64": "^3.7.7",
-        "libx.js": "^5.1.0",
+        "libx.js": "^5.1.1",
         "selfsigned": "^2.4.1",
         "ua-parser-js": "^1.0.39"
     },
