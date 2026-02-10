@@ -209,8 +209,8 @@ export class MCPAdapter {
 
 		const fullUrl = `http://localhost${url}`;
 		const requestInit: RequestInit = { method };
-		if (args.body && ['POST', 'PUT', 'PATCH'].includes(method)) {
-			requestInit.body = JSON.stringify(args.body);
+		if (['POST', 'PUT', 'PATCH'].includes(method)) {
+			requestInit.body = JSON.stringify(args.body || {});
 			requestInit.headers = { 'Content-Type': 'application/json' };
 		}
 
