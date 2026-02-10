@@ -5,7 +5,10 @@
       "Bash(ls:*)",
       "Bash(npx jest:*)",
       "mcp__todo-api__get_todos",
-      "mcp__todo-api__post_todos"
+      "mcp__todo-api__post_todos",
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebFetch(domain:claude.ai)",
+      "WebFetch(domain:www.humanlayer.dev)"
     ]
   },
   "enableAllProjectMcpServers": true,
