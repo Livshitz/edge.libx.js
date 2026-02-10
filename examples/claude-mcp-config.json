@@ -1,0 +1,12 @@
+{
+    "mcpServers": {
+        "todo-api": {
+            "command": "npx",
+            "args": [
+                "tsx",
+                "/Users/elya/Documents/Projects/Livshitz/edge.libx.js/examples/mcp-server.ts",
+                "--stdio"
+            ]
+        }
+    }
+}

@@ -1,6 +1,7 @@
 import { libx } from 'libx.js/build/bundles/essentials.js';
 import { Route, Router, RouterType, error, json, cors, withParams, IRequest, text, ResponseHandler } from 'itty-router';
 import { createServerAdapter } from '@whatwg-node/server';
+import { MCPAdapter, MCPOptions } from './MCPAdapter';
 
 type BaseRouterInitializer = (string) => { base: string; router: RouterType<IRequest, any[]> };
 type CorsOptions = Parameters<typeof cors>[0];
@@ -9,6 +10,7 @@ export class RouterWrapper<TCtx = any> {
 	private cors: ReturnType<typeof cors>;
 	private preflight: (request: Request) => Response | Promise<Response>;
 	private corsify: (response: Response, request: Request) => Response | Promise<Response>;
+	private mcpMeta: Map<string, { description?: string; params?: Record<string, { description?: string; type?: string }> }> = new Map();
 
 	public constructor(
 		public base: string,
@@ -65,5 +67,20 @@ export class RouterWrapper<TCtx = any> {
 	public createServerAdapter() {
 		const ittyServer = createServerAdapter(this.fetchHandler.bind(this));
 		return ittyServer;
+	}
+
+	public describeMCP(path: string, method: string, meta: { description?: string; params?: Record<string, { description?: string; type?: string }> }) {
+		const key = `${method.toUpperCase()}:${this.base}${path}`;
+		this.mcpMeta.set(key, meta);
+	}
+
+	public asMCP(options?: MCPOptions): MCPAdapter {
+		return new MCPAdapter(
+			this.router,
+			this.base,
+			this.fetchHandler.bind(this),
+			this.mcpMeta,
+			options,
+		);
 	}
 }
