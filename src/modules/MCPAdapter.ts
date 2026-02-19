@@ -7,7 +7,7 @@ export interface MCPOptions {
 
 interface ToolMeta {
 	description?: string;
-	params?: Record<string, { description?: string; type?: string }>;
+	params?: Record<string, { description?: string; type?: string; required?: boolean }>;
 }
 
 interface ToolDefinition {
@@ -131,16 +131,17 @@ export class MCPAdapter {
 				};
 			}
 
-			// Infer query params for GET/DELETE
-			if (['GET', 'DELETE'].includes(method)) {
-				const queryParams = this.inferQueryParams(handlers);
-				for (const qp of queryParams) {
-					if (!properties[qp]) {
-						properties[qp] = {
-							type: meta?.params?.[qp]?.type ?? 'string',
-							...(meta?.params?.[qp]?.description && { description: meta.params[qp].description }),
-						};
-					}
+			// Infer query params for all methods
+			const queryParams = this.inferQueryParams(handlers);
+			for (const qp of queryParams) {
+				if (!properties[qp]) {
+					properties[qp] = {
+						type: meta?.params?.[qp]?.type ?? 'string',
+						...(meta?.params?.[qp]?.description && { description: meta.params[qp].description }),
+					};
+				}
+				if (meta?.params?.[qp]?.required && !required.includes(qp)) {
+					required.push(qp);
 				}
 			}
 
@@ -225,7 +226,9 @@ export class MCPAdapter {
 			} catch {
 				content = text;
 			}
+			const isError = !response.ok;
 			return {
+				...(isError && { isError: true }),
 				content: [{ type: 'text', text: typeof content === 'string' ? content : JSON.stringify(content) }],
 			};
 		} catch (err: any) {

@@ -10,7 +10,7 @@ export class RouterWrapper<TCtx = any> {
 	private cors: ReturnType<typeof cors>;
 	private preflight: (request: Request) => Response | Promise<Response>;
 	private corsify: (response: Response, request: Request) => Response | Promise<Response>;
-	private mcpMeta: Map<string, { description?: string; params?: Record<string, { description?: string; type?: string }> }> = new Map();
+	private mcpMeta: Map<string, { description?: string; params?: Record<string, { description?: string; type?: string; required?: boolean }> }> = new Map();
 
 	public constructor(
 		public base: string,
@@ -69,7 +69,7 @@ export class RouterWrapper<TCtx = any> {
 		return ittyServer;
 	}
 
-	public describeMCP(path: string, method: string, meta: { description?: string; params?: Record<string, { description?: string; type?: string }> }) {
+	public describeMCP(path: string, method: string, meta: { description?: string; params?: Record<string, { description?: string; type?: string; required?: boolean }> }) {
 		const key = `${method.toUpperCase()}:${this.base}${path}`;
 		this.mcpMeta.set(key, meta);
 	}
