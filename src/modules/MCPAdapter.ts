@@ -3,6 +3,8 @@ import { RouterType, IRequest } from 'itty-router';
 export interface MCPOptions {
 	name?: string;
 	version?: string;
+	/** System-level instructions injected into the agent's context on connect (no user action needed). */
+	instructions?: string;
 }
 
 interface ToolMeta {
@@ -33,6 +35,7 @@ export class MCPAdapter {
 	private fetchHandler: (request: IRequest, ctx?: any) => Promise<Response>;
 	private serverName: string;
 	private serverVersion: string;
+	private instructions?: string;
 	private mcpMeta: Map<string, ToolMeta>;
 
 	constructor(
@@ -48,6 +51,7 @@ export class MCPAdapter {
 		this.mcpMeta = mcpMeta;
 		this.serverName = options?.name ?? 'MCP Server';
 		this.serverVersion = options?.version ?? '1.0.0';
+		this.instructions = options?.instructions;
 	}
 
 	public toolNameFromRoute(method: string, path: string): string {
@@ -251,6 +255,7 @@ export class MCPAdapter {
 						protocolVersion: '2024-11-05',
 						capabilities: { tools: { listChanged: true } },
 						serverInfo: { name: this.serverName, version: this.serverVersion },
+						...(this.instructions && { instructions: this.instructions }),
 					},
 				};
 
