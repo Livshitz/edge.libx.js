@@ -231,6 +231,19 @@ export class MCPAdapter {
 				content = text;
 			}
 			const isError = !response.ok;
+
+			// Detect dataUrl fields and return proper MCP image content blocks
+			if (!isError && content && typeof content === 'object' && typeof content.dataUrl === 'string' && content.dataUrl.startsWith('data:')) {
+				const match = content.dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+				if (match) {
+					const blocks: any[] = [];
+					const rest = Object.fromEntries(Object.entries(content).filter(([k]) => k !== 'dataUrl'));
+					if (Object.keys(rest).length > 0) blocks.push({ type: 'text', text: JSON.stringify(rest) });
+					blocks.push({ type: 'image', data: match[2], mimeType: match[1] });
+					return { content: blocks };
+				}
+			}
+
 			return {
 				...(isError && { isError: true }),
 				content: [{ type: 'text', text: typeof content === 'string' ? content : JSON.stringify(content) }],

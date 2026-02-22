@@ -50,22 +50,18 @@ libx.node.catchErrors((err) => {
 if (true || ['debug', 'debug:watch', 'api:debug', ''].indexOf(process.env.npm_lifecycle_event) !== -1) {
 	const env = getEnvVars() ?? { a: 1 };
 
+	const loadedModules: any[] = [];
 	for (let entryPoint of entryPoints) {
 		const dir = process.cwd(); // process.argv[1]
-		const { handler, prefix } = require(`${dir}/${entryPoint}`);
+		const mod = require(`${dir}/${entryPoint}`);
+		loadedModules.push(mod);
+		const { handler, prefix } = mod;
 		app.use(
 			prefix ?? '/api',
 			createServerAdapter((request, ctx) =>
 				handler(<IRequest>request, env, ctx))
 		);
 	}
-
-	// app.use(
-	// 	'/v5-n',
-	// 	createServerAdapter((request, env) =>
-	// 		handler_node(<IRequest>request, env))
-	// 		// handlerRedirect(<IRequest>request, env))
-	// );
 
 	const port = process.env.PORT || 8080;
 	try {
@@ -83,9 +79,20 @@ if (true || ['debug', 'debug:watch', 'api:debug', ''].indexOf(process.env.npm_li
 			}, app);
 		}
 
-		server.listen(port, () => {
+		const httpServer = server.listen(port, () => {
 			console.log(`Server listening on http${isHttps ? 's' : ''}://0.0.0.0:${port}`);
 		});
+
+		// Hook WebSocket upgrade handlers exported by entry modules
+		for (const mod of loadedModules) {
+			const uh = mod.upgradeHandler || mod.default?.upgradeHandler;
+			if (typeof uh === 'function') {
+				(httpServer as any).on('upgrade', uh);
+				console.log('localServer: attached upgradeHandler');
+			} else {
+				console.log('localServer: no upgradeHandler found, exports:', Object.keys(mod));
+			}
+		}
 	} catch (err) {
 		console.error(`LOCAL: Failed to start local server on port: ${port}`, err);
 	}
