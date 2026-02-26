@@ -69,7 +69,7 @@ export class RouterWrapper<TCtx = any> {
 		return ittyServer;
 	}
 
-	public describeMCP(path: string, method: string, meta: { description?: string; params?: Record<string, { description?: string; type?: string; required?: boolean }> }) {
+	public describeMCP(path: string, method: string, meta: { description?: string; params?: Record<string, { description?: string; type?: string; required?: boolean }>; annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean; openWorldHint?: boolean } }) {
 		const key = `${method.toUpperCase()}:${this.base}${path}`;
 		this.mcpMeta.set(key, meta);
 	}

@@ -7,9 +7,17 @@ export interface MCPOptions {
 	instructions?: string;
 }
 
+interface ToolAnnotations {
+	readOnlyHint?: boolean;
+	destructiveHint?: boolean;
+	idempotentHint?: boolean;
+	openWorldHint?: boolean;
+}
+
 interface ToolMeta {
 	description?: string;
 	params?: Record<string, { description?: string; type?: string; required?: boolean }>;
+	annotations?: ToolAnnotations;
 }
 
 interface ToolDefinition {
@@ -20,6 +28,7 @@ interface ToolDefinition {
 		properties: Record<string, any>;
 		required: string[];
 	};
+	annotations?: ToolAnnotations;
 }
 
 interface JsonRpcRequest {
@@ -159,6 +168,7 @@ export class MCPAdapter {
 					properties,
 					required,
 				},
+				...(meta?.annotations && { annotations: meta.annotations }),
 			});
 		}
 
