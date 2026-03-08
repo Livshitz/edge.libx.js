@@ -43,6 +43,7 @@ export class MCPAuth {
 		if (pathname === '/.well-known/oauth-authorization-server') return this.authServerMetadataHandler();
 		if (pathname === '/oauth/authorize') return this.authorizeHandler(req);
 		if (pathname === '/oauth/token') return this.tokenHandler(req);
+		if (pathname === '/oauth/register') return this.registerHandler(req);
 		return null;
 	}
 
@@ -61,6 +62,7 @@ export class MCPAuth {
 			issuer: b,
 			authorization_endpoint: `${b}/oauth/authorize`,
 			token_endpoint: `${b}/oauth/token`,
+			registration_endpoint: `${b}/oauth/register`,
 			response_types_supported: ['code'],
 			grant_types_supported: ['authorization_code'],
 			code_challenge_methods_supported: ['S256'],
@@ -116,6 +118,22 @@ export class MCPAuth {
 		return new Response(this.consentPage(clientId, redirectUri, codeChallenge, state), {
 			headers: { 'Content-Type': 'text/html' },
 		});
+	}
+
+	// ── Dynamic Client Registration (RFC 7591) ───────────────────────
+
+	private async registerHandler(req: Request): Promise<Response> {
+		if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+		const body = await req.json().catch(() => ({})) as Record<string, any>;
+		const clientId = crypto.randomUUID();
+		return Response.json({
+			client_id: clientId,
+			client_name: body.client_name ?? 'MCP Client',
+			redirect_uris: body.redirect_uris ?? [],
+			grant_types: ['authorization_code'],
+			response_types: ['code'],
+			token_endpoint_auth_method: 'none',
+		}, { status: 201 });
 	}
 
 	// ── Token endpoint ────────────────────────────────────────────────
