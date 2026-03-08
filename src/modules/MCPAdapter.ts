@@ -1,10 +1,13 @@
 import { RouterType, IRequest } from 'itty-router';
+import { MCPAuth, MCPAuthOptions } from './MCPAuth';
 
 export interface MCPOptions {
 	name?: string;
 	version?: string;
 	/** System-level instructions injected into the agent's context on connect (no user action needed). */
 	instructions?: string;
+	/** OAuth 2.1 config. If provided, MCP endpoint requires OAuth tokens. */
+	auth?: Partial<MCPAuthOptions>;
 }
 
 interface ToolAnnotations {
@@ -46,6 +49,7 @@ export class MCPAdapter {
 	private serverVersion: string;
 	private instructions?: string;
 	private mcpMeta: Map<string, ToolMeta>;
+	public auth?: MCPAuth;
 
 	constructor(
 		router: RouterType<any, any[], any>,
@@ -61,6 +65,9 @@ export class MCPAdapter {
 		this.serverName = options?.name ?? 'MCP Server';
 		this.serverVersion = options?.version ?? '1.0.0';
 		this.instructions = options?.instructions;
+		if (options?.auth) {
+			this.auth = new MCPAuth(options.auth);
+		}
 	}
 
 	public toolNameFromRoute(method: string, path: string): string {
@@ -312,6 +319,12 @@ export class MCPAdapter {
 	}
 
 	public httpHandler = async (request: Request): Promise<Response> => {
+		// OAuth token validation (if auth configured)
+		if (this.auth) {
+			const valid = await this.auth.validateToken(request);
+			if (!valid) return this.auth.unauthorizedResponse();
+		}
+
 		if (request.method === 'GET') {
 			// SSE endpoint for server-sent events (Streamable HTTP)
 			const stream = new ReadableStream({
