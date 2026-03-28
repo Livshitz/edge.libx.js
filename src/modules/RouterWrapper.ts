@@ -57,7 +57,7 @@ export class RouterWrapper<TCtx = any> {
 		return this.router.fetch(request, ctx)
 			.then(json)
 			.catch(RouterWrapper.errorHandler)
-			.then((res) => this.corsify(res, request));
+			.then((res) => this.corsify(res ?? error(404), request));
 	}
 
 	public catchNotFound() {
