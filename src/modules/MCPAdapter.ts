@@ -230,10 +230,12 @@ export class MCPAdapter {
 		}
 
 		const fullUrl = `http://localhost${url}`;
-		const requestInit: RequestInit = { method };
+		const headers: Record<string, string> = {};
+		if (this.auth?.options.secret) headers['Authorization'] = `Bearer ${this.auth.options.secret}`;
+		if (['POST', 'PUT', 'PATCH'].includes(method)) headers['Content-Type'] = 'application/json';
+		const requestInit: RequestInit = { method, headers };
 		if (['POST', 'PUT', 'PATCH'].includes(method)) {
 			requestInit.body = JSON.stringify(args.body || {});
-			requestInit.headers = { 'Content-Type': 'application/json' };
 		}
 
 		const request = new Request(fullUrl, requestInit);
