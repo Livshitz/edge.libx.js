@@ -79,7 +79,7 @@ class JwtHelper {
 		const payload = Base64.encodeURI(
 			JSON.stringify({
 				iss: serviceAccount.client_email,
-				sub: serviceAccount.client_email,
+				sub: options.sub || serviceAccount.client_email,
 				scope,
 				aud: options.aud,
 				exp,
@@ -261,6 +261,7 @@ class JwtHelper {
 class Options {
 	aud = 'https://oauth2.googleapis.com/token';
 	exp = 3600;
+	sub?: string;
 }
 
 interface IJwtTokenPayload {
