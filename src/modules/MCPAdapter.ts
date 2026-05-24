@@ -8,6 +8,10 @@ export interface MCPOptions {
 	instructions?: string;
 	/** OAuth 2.1 config. If provided, MCP endpoint requires OAuth tokens. */
 	auth?: Partial<MCPAuthOptions>;
+	/** Extra params injected into every tool's input schema. */
+	globalParams?: Record<string, { type?: string; description?: string }>;
+	/** Wraps every callTool invocation — use for auth context, logging, etc. */
+	onToolCall?: (name: string, args: Record<string, any>, next: () => Promise<any>) => Promise<any>;
 }
 
 interface ToolAnnotations {
@@ -49,6 +53,8 @@ export class MCPAdapter {
 	private serverVersion: string;
 	private instructions?: string;
 	private mcpMeta: Map<string, ToolMeta>;
+	private globalParams?: Record<string, { type?: string; description?: string }>;
+	private onToolCall?: MCPOptions['onToolCall'];
 	public auth?: MCPAuth;
 
 	constructor(
@@ -65,6 +71,8 @@ export class MCPAdapter {
 		this.serverName = options?.name ?? 'MCP Server';
 		this.serverVersion = options?.version ?? '1.0.0';
 		this.instructions = options?.instructions;
+		this.globalParams = options?.globalParams;
+		this.onToolCall = options?.onToolCall;
 		if (options?.auth) {
 			this.auth = new MCPAuth(options.auth);
 		}
@@ -104,6 +112,14 @@ export class MCPAdapter {
 				const bracketPattern = /(?:req(?:uest)?\.)?query\[['"](\w+)['"]\]/g;
 				while ((match = bracketPattern.exec(src)) !== null) {
 					params.add(match[1]);
+				}
+				// Match destructured: const { a, b, c } = req.query  or  = request.query
+				const destructPattern = /(?:const|let|var)\s*\{\s*([^}]+)\}\s*=\s*(?:req(?:uest)?\.)?query/g;
+				while ((match = destructPattern.exec(src)) !== null) {
+					for (const name of match[1].split(',')) {
+						const clean = name.trim().split(/[\s:]/)[0];
+						if (clean && /^\w+$/.test(clean)) params.add(clean);
+					}
 				}
 			} catch {
 				// handler.toString() may fail for native code
@@ -165,6 +181,14 @@ export class MCPAdapter {
 				}
 			}
 
+			if (this.globalParams) {
+				for (const [key, schema] of Object.entries(this.globalParams)) {
+					if (!properties[key]) {
+						properties[key] = { type: schema.type ?? 'string', ...(schema.description && { description: schema.description }) };
+					}
+				}
+			}
+
 			const description = meta?.description ?? `${method} ${originalPath}`;
 
 			tools.push({
@@ -196,6 +220,13 @@ export class MCPAdapter {
 	}
 
 	public async callTool(name: string, args: Record<string, any> = {}): Promise<any> {
+		if (this.onToolCall) {
+			return this.onToolCall(name, args, () => this._callTool(name, args));
+		}
+		return this._callTool(name, args);
+	}
+
+	private async _callTool(name: string, args: Record<string, any> = {}): Promise<any> {
 		const route = this.findRoute(name);
 		if (!route) {
 			return { isError: true, content: [{ type: 'text', text: `Unknown tool: ${name}` }] };
