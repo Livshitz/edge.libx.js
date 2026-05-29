@@ -398,16 +398,35 @@ export class MCPAdapter {
 		}
 	};
 
-	public async serveStdio(): Promise<void> {
+	public async serveStdio(options?: { idleTimeoutMs?: number }): Promise<void> {
 		const stdin = (globalThis as any).process.stdin;
 		const stdout = (globalThis as any).process.stdout;
+		const idleMs = options?.idleTimeoutMs ?? 30 * 60_000; // 30min default
 
 		stdin.setEncoding('utf8');
 
+		let idleTimer: ReturnType<typeof setTimeout> | null = null;
+		const resetIdle = () => {
+			if (idleTimer) clearTimeout(idleTimer);
+			if (idleMs > 0) {
+				idleTimer = setTimeout(() => {
+					process.stderr.write(`[MCP] Idle timeout (${idleMs / 1000}s) — exiting\n`);
+					process.exit(0);
+				}, idleMs);
+				idleTimer.unref();
+			}
+		};
+		resetIdle();
+
+		// Exit when parent closes stdin
+		stdin.on('end', () => process.exit(0));
+		stdin.on('close', () => process.exit(0));
+		stdout.on('error', () => process.exit(0));
+
 		let buffer = '';
 		stdin.on('data', async (chunk: string) => {
+			resetIdle();
 			buffer += chunk;
-			// Process complete lines
 			const lines = buffer.split('\n');
 			buffer = lines.pop() ?? '';
 
