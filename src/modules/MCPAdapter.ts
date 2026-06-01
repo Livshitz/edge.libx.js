@@ -1,6 +1,50 @@
 import { RouterType, IRequest } from 'itty-router';
 import { MCPAuth, MCPAuthOptions } from './MCPAuth';
 
+// ── MCP progress (notifications/progress) ────────────────────────────────────
+// A tool handler can stream progress to the client mid-call via reportMcpProgress().
+// The active channel is carried in an AsyncLocalStorage so handlers stay plain
+// (request → response) — no signature changes. AsyncLocalStorage is loaded
+// defensively: on edge runtimes that lack node:async_hooks, progress degrades to
+// a no-op (tools still work, just without live updates).
+type ProgressSink = (notification: any) => void;
+interface ProgressContext {
+	token: string | number;
+	send: ProgressSink;
+	counter: { n: number };
+}
+let progressStore: { getStore(): ProgressContext | undefined; run<T>(ctx: ProgressContext, fn: () => T): T } | null = null;
+try {
+	// eslint-disable-next-line @typescript-eslint/no-var-requires
+	const { AsyncLocalStorage } = require('node:async_hooks');
+	progressStore = new AsyncLocalStorage();
+} catch {
+	/* edge runtime without async_hooks — reportMcpProgress becomes a no-op */
+}
+
+export interface McpProgressOptions {
+	/** Explicit progress value. Omit to auto-increment. MUST be monotonic per token (MCP spec). */
+	progress?: number;
+	/** Optional known total, for a determinate progress bar. */
+	total?: number;
+}
+
+/**
+ * Report progress for the in-flight MCP `tools/call`. No-op when called outside a
+ * progress-enabled call (no client progressToken, or unsupported runtime), so it
+ * is always safe to call from a tool handler.
+ */
+export function reportMcpProgress(message: string, opts?: McpProgressOptions): void {
+	const ctx = progressStore?.getStore();
+	if (!ctx) return;
+	const progress = opts?.progress ?? (ctx.counter.n += 1);
+	ctx.send({
+		jsonrpc: '2.0',
+		method: 'notifications/progress',
+		params: { progressToken: ctx.token, progress, ...(opts?.total != null ? { total: opts.total } : {}), message },
+	});
+}
+
 export interface MCPOptions {
 	name?: string;
 	version?: string;
@@ -306,7 +350,7 @@ export class MCPAdapter {
 		}
 	}
 
-	public async handleJsonRpc(message: JsonRpcRequest): Promise<any> {
+	public async handleJsonRpc(message: JsonRpcRequest, sendNotification?: ProgressSink): Promise<any> {
 		const { method, id, params } = message;
 
 		switch (method) {
@@ -334,7 +378,12 @@ export class MCPAdapter {
 				};
 
 			case 'tools/call': {
-				const result = await this.callTool(params?.name, params?.arguments ?? {});
+				const token = params?._meta?.progressToken;
+				const invoke = () => this.callTool(params?.name, params?.arguments ?? {});
+				const result =
+					token != null && sendNotification && progressStore
+						? await progressStore.run({ token, send: sendNotification, counter: { n: 0 } }, invoke)
+						: await invoke();
 				return {
 					jsonrpc: '2.0',
 					id,
@@ -379,6 +428,32 @@ export class MCPAdapter {
 		// POST: JSON-RPC request
 		try {
 			const body = await request.json() as JsonRpcRequest;
+
+			// Streamable HTTP: when the client passes a progressToken and accepts an
+			// event-stream, respond with SSE so notifications/progress can be emitted
+			// mid-call (followed by the final JSON-RPC response), then close.
+			const token = body?.method === 'tools/call' ? (body.params as any)?._meta?.progressToken : undefined;
+			const acceptsSse = (request.headers.get('accept') || '').includes('text/event-stream');
+			if (token != null && acceptsSse && progressStore) {
+				const handle = this.handleJsonRpc.bind(this);
+				const stream = new ReadableStream({
+					async start(controller) {
+						const encoder = new TextEncoder();
+						const send: ProgressSink = (n) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(n)}\n\n`));
+						try {
+							const result = await handle(body, send);
+							if (result !== null) send(result);
+						} catch (err: any) {
+							send({ jsonrpc: '2.0', id: body?.id ?? null, error: { code: -32603, message: err?.message ?? String(err) } });
+						}
+						controller.close();
+					},
+				});
+				return new Response(stream, {
+					headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' },
+				});
+			}
+
 			const result = await this.handleJsonRpc(body);
 			if (result === null) {
 				return new Response(null, { status: 204 });
@@ -436,7 +511,8 @@ export class MCPAdapter {
 				if (!trimmed) continue;
 				try {
 					const message = JSON.parse(trimmed) as JsonRpcRequest;
-					const result = await this.handleJsonRpc(message);
+					const send: ProgressSink = (n) => stdout.write(JSON.stringify(n) + '\n');
+						const result = await this.handleJsonRpc(message, send);
 					if (result !== null) {
 						stdout.write(JSON.stringify(result) + '\n');
 					}
