@@ -29,20 +29,40 @@ export interface McpProgressOptions {
 	total?: number;
 }
 
-/**
- * Report progress for the in-flight MCP `tools/call`. No-op when called outside a
- * progress-enabled call (no client progressToken, or unsupported runtime), so it
- * is always safe to call from a tool handler.
- */
-export function reportMcpProgress(message: string, opts?: McpProgressOptions): void {
-	const ctx = progressStore?.getStore();
-	if (!ctx) return;
+export type McpProgressReporter = (message: string, opts?: McpProgressOptions) => void;
+
+function emitProgress(ctx: ProgressContext, message: string, opts?: McpProgressOptions): void {
 	const progress = opts?.progress ?? (ctx.counter.n += 1);
 	ctx.send({
 		jsonrpc: '2.0',
 		method: 'notifications/progress',
 		params: { progressToken: ctx.token, progress, ...(opts?.total != null ? { total: opts.total } : {}), message },
 	});
+}
+
+/**
+ * Report progress for the in-flight MCP `tools/call`. No-op when called outside a
+ * progress-enabled call (no client progressToken, or unsupported runtime), so it
+ * is always safe to call from a tool handler. NOTE: must be called within the
+ * handler's own async context — if you emit from a detached callback (child-process
+ * stream events, timers, listeners), use captureMcpProgress() instead, which binds
+ * the channel synchronously and keeps working across context boundaries.
+ */
+export function reportMcpProgress(message: string, opts?: McpProgressOptions): void {
+	const ctx = progressStore?.getStore();
+	if (ctx) emitProgress(ctx, message, opts);
+}
+
+/**
+ * Capture the active progress channel synchronously and return a reporter bound to
+ * it. The returned function keeps working even when called outside the async context
+ * (e.g. from stream 'data' events or timers), where reportMcpProgress would no-op.
+ * Call this at handler entry; returns a no-op reporter when no progress is requested.
+ */
+export function captureMcpProgress(): McpProgressReporter {
+	const ctx = progressStore?.getStore();
+	if (!ctx) return () => {};
+	return (message, opts) => emitProgress(ctx, message, opts);
 }
 
 export interface MCPOptions {
