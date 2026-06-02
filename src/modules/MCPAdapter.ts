@@ -223,16 +223,28 @@ export class MCPAdapter {
 				required.push(paramName);
 			}
 
-			// POST/PUT/PATCH get a body property
+			// Infer query params for all methods
+			const queryParams = this.inferQueryParams(handlers);
+			const querySet = new Set(queryParams);
+
+			// POST/PUT/PATCH get a body property — typed from declared params so the schema is
+			// self-describing (declared params that aren't path/query params become body fields).
 			if (['POST', 'PUT', 'PATCH'].includes(method)) {
+				const bodyProps: Record<string, any> = {};
+				const bodyRequired: string[] = [];
+				for (const [pname, pdef] of Object.entries(meta?.params ?? {})) {
+					if (pname === 'body' || properties[pname] || querySet.has(pname)) continue; // skip path/query/body-meta
+					bodyProps[pname] = { type: (pdef as any)?.type ?? 'string', ...((pdef as any)?.description && { description: (pdef as any).description }) };
+					if ((pdef as any)?.required) bodyRequired.push(pname);
+				}
 				properties['body'] = {
 					type: 'object',
 					description: meta?.params?.['body']?.description ?? 'Request body',
+					...(Object.keys(bodyProps).length > 0 && { properties: bodyProps }),
+					...(bodyRequired.length > 0 && { required: bodyRequired }),
 				};
 			}
 
-			// Infer query params for all methods
-			const queryParams = this.inferQueryParams(handlers);
 			for (const qp of queryParams) {
 				if (!properties[qp]) {
 					properties[qp] = {
