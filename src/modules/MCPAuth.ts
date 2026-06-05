@@ -44,6 +44,7 @@ export class MCPAuth {
 		if (pathname === '/oauth/authorize') return this.authorizeHandler(req);
 		if (pathname === '/oauth/token') return this.tokenHandler(req);
 		if (pathname === '/oauth/register') return this.registerHandler(req);
+		if (pathname === '/oauth/callback') return this.callbackHandler(req);
 		return null;
 	}
 
@@ -90,11 +91,14 @@ export class MCPAuth {
 				expiresAt: Date.now() + (this.options.codeTtl! * 1000),
 			});
 
-			const redirect = new URL(redirectUri);
-			redirect.searchParams.set('code', code);
-			const state = form?.get('state')?.toString();
-			if (state) redirect.searchParams.set('state', state);
-			return Response.redirect(redirect.toString(), 302);
+			const state = form?.get('state')?.toString() ?? '';
+
+			// Redirect to server-hosted callback (avoids dead localhost listener)
+			const serverCallback = new URL('/oauth/callback', this.options.baseUrl);
+			serverCallback.searchParams.set('code', code);
+			serverCallback.searchParams.set('state', state);
+			serverCallback.searchParams.set('redirect_uri', redirectUri);
+			return Response.redirect(serverCallback.toString(), 302);
 		}
 
 		// GET — check login, show consent page
@@ -239,6 +243,25 @@ export class MCPAuth {
 		}
 	}
 
+	// ── Server-hosted callback ────────────────────────────────────────
+
+	private callbackHandler(req: Request): Response {
+		const url = new URL(req.url);
+		const code = url.searchParams.get('code') ?? '';
+		const state = url.searchParams.get('state') ?? '';
+		const redirectUri = url.searchParams.get('redirect_uri') ?? '';
+
+		// Build the original client redirect URL
+		const clientRedirect = new URL(redirectUri || 'http://localhost');
+		clientRedirect.searchParams.set('code', code);
+		if (state) clientRedirect.searchParams.set('state', state);
+		const clientUrl = clientRedirect.toString();
+
+		return new Response(this.callbackPage(clientUrl, code, state), {
+			headers: { 'Content-Type': 'text/html' },
+		});
+	}
+
 	// ── Consent page ──────────────────────────────────────────────────
 
 	private consentPage(clientId: string, redirectUri: string, codeChallenge: string, state: string): string {
@@ -266,6 +289,46 @@ button{padding:.5rem 1.5rem;background:#fafafa;color:#09090b;border:none;border-
 <button type="submit">Approve</button>
 </form>
 </div></body></html>`;
+	}
+	private callbackPage(clientUrl: string, code: string, state: string): string {
+		const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+		return `<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Authorized — ${esc(this.options.serviceName!)}</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100svh;display:flex;align-items:center;justify-content:center;background:#09090b;color:#fafafa;font-family:system-ui,sans-serif}
+.card{background:#18181b;border:1px solid #27272a;border-radius:8px;padding:2rem;width:100%;max-width:460px;text-align:center}
+h1{font-size:1.1rem;font-weight:600;margin-bottom:.5rem}
+p{color:#a1a1aa;font-size:.875rem;margin-bottom:1rem}
+.ok{color:#4ade80}
+.fail{color:#f87171}
+code{background:#27272a;padding:.25rem .5rem;border-radius:4px;font-size:.75rem;word-break:break-all;display:block;margin:.75rem 0;user-select:all;cursor:pointer}
+button{padding:.5rem 1.5rem;background:#fafafa;color:#09090b;border:none;border-radius:6px;font-size:.875rem;font-weight:500;cursor:pointer;margin-top:.5rem}
+</style></head><body>
+<div class="card">
+<h1 id="title">Completing authorization…</h1>
+<p id="status">Forwarding to client</p>
+<div id="fallback" style="display:none">
+<p>Paste this URL into the agent/CLI that requested authorization:</p>
+<code id="url">${esc(clientUrl)}</code>
+<button onclick="navigator.clipboard.writeText(document.getElementById('url').textContent)">Copy URL</button>
+</div>
+</div>
+<script>
+(async()=>{
+const url=${JSON.stringify(clientUrl)};
+try{
+await fetch(url,{mode:'no-cors',signal:AbortSignal.timeout(2000)});
+window.location.href=url;
+}catch{
+document.getElementById('title').innerHTML='<span class="ok">✓</span> Authorized';
+document.getElementById('status').textContent='Could not reach the local client. Copy the URL below:';
+document.getElementById('fallback').style.display='block';
+}
+})();
+</script>
+</body></html>`;
 	}
 }
 
