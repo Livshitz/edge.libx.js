@@ -262,10 +262,15 @@ export class MCPAuth {
 		}
 
 		// Build the original client redirect URL
-		const clientRedirect = new URL(redirectUri || 'http://localhost');
-		clientRedirect.searchParams.set('code', code);
-		if (state) clientRedirect.searchParams.set('state', state);
-		const clientUrl = clientRedirect.toString();
+		let clientUrl: string;
+		try {
+			const clientRedirect = new URL(redirectUri || 'http://localhost');
+			clientRedirect.searchParams.set('code', code);
+			if (state) clientRedirect.searchParams.set('state', state);
+			clientUrl = clientRedirect.toString();
+		} catch {
+			clientUrl = `${redirectUri}${redirectUri.includes('?') ? '&' : '?'}code=${encodeURIComponent(code)}${state ? `&state=${encodeURIComponent(state)}` : ''}`;
+		}
 
 		return new Response(this.callbackPage(clientUrl, code, state), {
 			headers: { 'Content-Type': 'text/html' },
