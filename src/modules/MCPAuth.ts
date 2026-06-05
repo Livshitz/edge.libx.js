@@ -24,6 +24,7 @@ interface PendingCode {
 export class MCPAuth {
 	public options: MCPAuthOptions;
 	private pendingCodes = new Map<string, PendingCode>();
+	private completedCallbacks = new Map<string, { code: string; redirectUri: string; expiresAt: number }>();
 	private cryptoKey: Promise<CryptoKey>;
 
 	constructor(options: Partial<MCPAuthOptions>) {
@@ -45,6 +46,7 @@ export class MCPAuth {
 		if (pathname === '/oauth/token') return this.tokenHandler(req);
 		if (pathname === '/oauth/register') return this.registerHandler(req);
 		if (pathname === '/oauth/callback') return this.callbackHandler(req);
+		if (pathname === '/oauth/poll') return this.pollHandler(req);
 		return null;
 	}
 
@@ -251,6 +253,14 @@ export class MCPAuth {
 		const state = url.searchParams.get('state') ?? '';
 		const redirectUri = url.searchParams.get('redirect_uri') ?? '';
 
+		// Store for polling by MCP client
+		if (state) {
+			this.completedCallbacks.set(state, {
+				code, redirectUri,
+				expiresAt: Date.now() + (this.options.codeTtl! * 1000),
+			});
+		}
+
 		// Build the original client redirect URL
 		const clientRedirect = new URL(redirectUri || 'http://localhost');
 		clientRedirect.searchParams.set('code', code);
@@ -260,6 +270,24 @@ export class MCPAuth {
 		return new Response(this.callbackPage(clientUrl, code, state), {
 			headers: { 'Content-Type': 'text/html' },
 		});
+	}
+
+	private pollHandler(req: Request): Response {
+		const url = new URL(req.url);
+		const state = url.searchParams.get('state');
+		if (!state) return Response.json({ error: 'missing state' }, { status: 400 });
+
+		// Cleanup expired entries
+		const now = Date.now();
+		for (const [k, v] of this.completedCallbacks) {
+			if (v.expiresAt < now) this.completedCallbacks.delete(k);
+		}
+
+		const entry = this.completedCallbacks.get(state);
+		if (!entry) return Response.json({ status: 'pending' }, { status: 202 });
+
+		this.completedCallbacks.delete(state);
+		return Response.json({ status: 'complete', code: entry.code, redirect_uri: entry.redirectUri });
 	}
 
 	// ── Consent page ──────────────────────────────────────────────────
@@ -323,8 +351,17 @@ await fetch(url,{mode:'no-cors',signal:AbortSignal.timeout(2000)});
 window.location.href=url;
 }catch{
 document.getElementById('title').innerHTML='<span class="ok">✓</span> Authorized';
-document.getElementById('status').textContent='Could not reach the local client. Copy the URL below:';
+document.getElementById('status').textContent='Waiting for client to pick up the authorization…';
 document.getElementById('fallback').style.display='block';
+// Poll until the client picks up the code (poll endpoint deletes it on read)
+const state=${JSON.stringify(state)};
+if(state){let i=0;const t=setInterval(async()=>{
+try{const r=await fetch('/oauth/poll?state='+encodeURIComponent(state));
+const d=await r.json();
+if(r.status!==202){clearInterval(t);document.getElementById('status').textContent='Client connected. You can close this tab.';document.getElementById('fallback').style.display='none';}
+}catch{}
+if(++i>60)clearInterval(t);
+},2000);}
 }
 })();
 </script>
