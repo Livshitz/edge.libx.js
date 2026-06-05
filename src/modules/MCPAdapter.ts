@@ -433,10 +433,14 @@ export class MCPAdapter {
 	}
 
 	public httpHandler = async (request: Request): Promise<Response> => {
-		// OAuth token validation (if auth configured)
+		// Auth validation (if configured): accept raw API key OR OAuth JWT
 		if (this.auth) {
-			const valid = await this.auth.validateToken(request);
-			if (!valid) return this.auth.unauthorizedResponse();
+			const authHeader = request.headers.get('Authorization');
+			const isRawKey = authHeader === `Bearer ${this.auth.options.secret}`;
+			if (!isRawKey) {
+				const valid = await this.auth.validateToken(request);
+				if (!valid) return this.auth.unauthorizedResponse();
+			}
 		}
 
 		if (request.method === 'GET') {
