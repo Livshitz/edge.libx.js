@@ -310,6 +310,13 @@ export class MCPAdapter {
 
 		const { method, path } = route;
 
+		// For GET/DELETE, the MCP client wraps params in args.body but the HTTP
+		// handler reads them from req.query. Flatten body into top-level args.
+		if (!['POST', 'PUT', 'PATCH'].includes(method) && args.body && typeof args.body === 'object') {
+			const { body, ...rest } = args;
+			args = { ...rest, ...body };
+		}
+
 		// Build URL with path params substituted
 		let url = path;
 		const pathParamPattern = /:(\w+)/g;

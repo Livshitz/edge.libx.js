@@ -40,6 +40,12 @@ export class MCPAuth {
 
 	/** Single dispatcher — returns Response if matched, null otherwise. */
 	public handleRequest(pathname: string, req: Request): Response | Promise<Response> | null {
+		// Skip OAuth discovery when request carries a valid raw API key —
+		// returning null makes the caller fall through to the normal handler,
+		// so SDK clients with pre-configured bearer tokens never enter OAuth.
+		const auth = req.headers.get('Authorization');
+		if (auth === `Bearer ${this.options.secret}`) return null;
+
 		if (pathname === '/.well-known/oauth-protected-resource') return this.resourceMetadataHandler();
 		if (pathname === '/.well-known/oauth-authorization-server') return this.authServerMetadataHandler();
 		if (pathname === '/oauth/authorize') return this.authorizeHandler(req);
