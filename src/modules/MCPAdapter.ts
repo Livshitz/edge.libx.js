@@ -120,6 +120,9 @@ export class MCPAdapter {
 	private globalParams?: Record<string, { type?: string; description?: string }>;
 	private onToolCall?: MCPOptions['onToolCall'];
 	public auth?: MCPAuth;
+	/** Cached tool descriptors, invalidated when the route count changes. */
+	private toolsCache?: ToolDefinition[];
+	private toolsCacheRouteCount = -1;
 
 	constructor(
 		router: RouterType<any, any[], any>,
@@ -193,7 +196,13 @@ export class MCPAdapter {
 	}
 
 	public introspectRoutes(): ToolDefinition[] {
+		// Descriptors are derived purely from routes/meta/globalParams. Routes are
+		// effectively frozen once asMCP() is wired, so build once and serve from
+		// cache — this keeps `tools/list` (212 tools here) to a memory read instead
+		// of re-running handler.toString() + regex inference on every request. The
+		// cache is keyed on route count so routes added later are still reflected.
 		const routes: any[] = (this.router as any).routes ?? [];
+		if (this.toolsCache && this.toolsCacheRouteCount === routes.length) return this.toolsCache;
 		const tools: ToolDefinition[] = [];
 
 		for (const route of routes) {
@@ -279,6 +288,8 @@ export class MCPAdapter {
 			});
 		}
 
+		this.toolsCache = tools;
+		this.toolsCacheRouteCount = routes.length;
 		return tools;
 	}
 
