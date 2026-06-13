@@ -441,6 +441,12 @@ export class MCPAdapter {
 				};
 			}
 
+			case 'ping':
+				// MCP spec: a `ping` MUST be answered with an empty result. Clients (e.g. Claude
+				// Code) ping idle stdio servers as a liveness check; returning the -32601 default
+				// instead makes the client treat the transport as dead and disconnect.
+				return { jsonrpc: '2.0', id, result: {} };
+
 			default:
 				return {
 					jsonrpc: '2.0',
