@@ -16,6 +16,11 @@ jobs:
 
         runs-on: ubuntu-latest
 
+        # bump.sh pushes the version-bump commit + tag back to the repo; the
+        # default GITHUB_TOKEN is read-only, which 403s on push. Grant write.
+        permissions:
+            contents: write
+
         strategy:
             matrix:
                 node-version: [20.x]
