@@ -538,7 +538,11 @@ export class MCPAdapter {
 		const stdin = proc.stdin;
 		const stdout = proc.stdout;
 		const stderr = proc.stderr;
-		const idleMs = options?.idleTimeoutMs ?? 30 * 60_000; // 30min default
+		// Precedence: explicit option → MCP_STDIO_IDLE_MS env → 30min default. Set the env (or option)
+		// to 0 to disable the self-exit entirely (server lives for the whole client session). The env
+		// knob lets any edge.libx MCP be tuned at launch without a code change.
+		const envIdle = Number(proc.env?.MCP_STDIO_IDLE_MS);
+		const idleMs = options?.idleTimeoutMs ?? (Number.isFinite(envIdle) ? envIdle : 30 * 60_000);
 
 		stdin.setEncoding('utf8');
 

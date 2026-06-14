@@ -122,6 +122,11 @@ if (process.argv.includes('--stdio')) {
 }
 ```
 
+`serveStdio({ idleTimeoutMs })` controls the idle self-exit. Precedence: explicit option →
+`MCP_STDIO_IDLE_MS` env → 30min default. Set to `0` to disable (server stays alive for the whole
+client session — Claude Code does not auto-respawn a dead stdio server, so a self-exit shows up as a
+"disconnected" MCP until `/mcp` reconnects).
+
 Register in Claude Code:
 ```bash
 claude mcp add -s project my-api -- npx tsx path/to/server.ts --stdio
